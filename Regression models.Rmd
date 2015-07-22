@@ -1,0 +1,132 @@
+---
+title: "Regression models course project"
+output: pdf_document
+---
+
+## Executive summary
+
+This project uses the **mtcars** data set in R to answer the following couple of questions. We are interested in exploring the relationship between a set of variables and the miles per gallon (MPG). In particular, we will answer these questions:
+
+   *Is an automatic or manual transmission better for MPG*
+    
+   *Quantify the MPG difference between automatic and manual transmissions*
+
+Out final preferred model for miles per galollon as outcome (mpg) includes as explanatory variables the type of transmission (am), the weight of the car (wt), an interaction between the two (since the weight differs across transmission type), and factors for the number of cylinders (cyl). Our overall conclusion is that **manual tranmission has higher mpg**.  
+   
+##Exploratory analysis of the data
+We start with loading the data and doing some basic summary.
+```{r, results="hide"}
+library(datasets)
+head(mtcars, 3)
+str(mtcars) #output not shown
+```
+
+## Do automatic and manual transmission cars differ in mpg use?
+
+We are interested in whether the mpg differes by type of transmission (manual vs automatic). In the Appendix, we draw a boxplot showing the mean mpg by type of transmission. The average mpg for automatic transmission is about 17, and for manual transmission about 25. 
+
+A t-test for the difference in means has been performed (see Appendix).The p-value of the null hypothesis (of equal means) is 0.001374, so we reject the null and infer that the mean mpg significantly differs between manual and automatic cars. 
+
+## Which variables could explain mpg? 
+
+The most difficult part is to pick the appropriate variable (other than the transmission type) that we will include in our model. We draw pairwise graphs between mpg and a number of variables that we believe could affect it. We also present a function (taken from the pairs Help page), which calculates to correlation between the variables. See the Appendix for the syntax of the function and all the graphs. The variables with highest correlation with mpg are ***weight(wt)*** and ***number of cylinders(cyl)***. Since we want our covariates to have high explanatory power for the outcome, we will consider using these variables in our model.
+
+##Regression analysis
+
+We already have our candidates for variables to include in the regression model. To see which is the most appropriate one, we will fit a few models and compare how they perform.
+
+We start with a simple model, fitting mpg only with the type of transmission.
+Then, we add the weight and cylinders and compare how that one is performing. 
+However, after performing other exploratory analysis, we realised that the weight variable differes across transmission types. See the Appendix for very illustrative ggplot and for a t-test for difference in means. The t-test indeed showed that the weight across the two types is signifantly different. Therefore, a final model we will consider is one interacting the weight with the transmission type.
+
+In the first model (fit1), the coefficient of the am variable is 7.245, which is the difference between manual cars (am=1) and automatic cars (am=0). It explains about 34% of the variation in mpg (adjusted R-squared is 0.3385).
+Interestingly, in the second model the adjusted R-squared increases to 0.8134 but the factor for transmission is no longer statistically significant. However, as we expect a strong relationship between **wt** and **am**, this insignificance could be due to omitted variables bias. 
+Our final model (fit3) has R-sqared of 0.8775, and the coefficient for the type of transmission is **11.569**. Overall, if we hold wt and cyl constant, a manual car (am=1) has 11.569 -2.399*wt more mpg than automatic (am=0) cars. For example, a manual car that weight 1000lbs, has 9.17 more mpg than an automatic car with the same weight and number of cyclinders. 
+Our preferred model has 26 df and residual standard error of about 2.304. 
+
+```{r}
+fit1<-lm(mpg~factor(am), data=mtcars)
+summary(fit1)$coef
+#second model
+fit2<-lm(mpg~wt+factor(am)+factor(cyl), data=mtcars)
+summary(fit2)$coef
+#third model
+fit3<-lm(mpg~wt+factor(am)+wt*factor(am)+factor(cyl), data=mtcars)
+summary(fit3)$coef
+
+```
+
+To test whether adding additional terms is necessary, we used ANOVA likelihood ratio test for nested models. The output is given below. The conclusion from the ANova test is that adding the variables is appropriate. 
+
+```{r}
+anova(fit1, fit2, fit3)
+```
+
+## Some robustness tests
+Finally, we performed some robustness analysis on the model we chose. We did the following (see the Appendix for code and graphs):
+
+Plotting the fitted valued and the residuals failed to display some pattern.
+
+Normall Q-Q plot indicates the residuals are normally distributed, as we see no large deviations from the line.
+
+The Scale-Location does not appear problematic.
+
+Finally, residuals versus Leverage does not show the presence of outliers.
+
+##Concluding
+In conclusion, we fitted a model that explains the miles per gallon (mpg) with the type of transmission of a car (manual/automatic), the weight, the cylinders, and and interaction between the weight and the type of a car. We find that manual cars are overall associated with higher mpg than automatic ones.  
+
+##Appendix
+Boxplot for mean mpg across manual and automatic cars. 
+
+```{r, fig.width=6, fig.height=4}
+boxplot(mpg~am, data=mtcars, col="salmon", xlab="Transmission: automatic (0) vs manual (1)", ylab="miles per gallon", main="Miles per hour for type of transmission")
+```
+
+T-test for difference of means between manual and automatic
+
+```{r}
+t.test(mtcars$mpg~mtcars$am)
+```
+
+A code for function that in the upper panel of pairwise plots, writes the correlations between the respective variables (note, this code was in the *pairs Help page* but was useful to use in our context).The code is followed by some paired plots between mpg and other variables. For better visibility, we plot mpg with only 2 other variables at a time, though it is, of course, possible to draw the relationships between all simultaneously. 
+
+
+```{r, fig.width=5, fig.height=3}
+panel.cor <- function(x, y, digits=2, prefix="", cex.cor)
+{
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- abs(cor(x, y))
+    txt <- format(c(r, 0.123456789), digits=digits)[1]
+    txt <- paste(prefix, txt, sep="")
+    if(missing(cex.cor)) cex <- 0.8/strwidth(txt)
+    text(0.5, 0.5, txt, cex = cex * r)
+}
+pairs(mpg~am+wt, data=mtcars, lower.panel=panel.smooth, upper.panel=panel.cor)
+pairs(mpg~hp+carb, data=mtcars, lower.panel=panel.smooth, upper.panel=panel.cor)
+pairs(mpg~cyl+qsec, data=mtcars, lower.panel=panel.smooth, upper.panel=panel.cor)
+```
+
+
+### Weight differences in automatic and manual transmission cars
+Do automatic versus manual transmission cars have difference in weight and number of cylinders? We can do a t-test for difference in means.
+```{r, fig.width=5, fig.height=3}
+t.test(mtcars$wt~mtcars$am)
+library(ggplot2)
+ggplot(mtcars, aes(wt, mpg, color=factor(am)))+geom_point()
+```
+
+###Residuals
+Residual plots 
+
+```{r, fig.width=6, fig.height=4}
+plot(fit3$fitted, fit3$res, col="blue", pch=17, ylab="residuals", xlab="fitted")
+```
+
+```{r}   
+#Overall residual plots
+par(mfrow=c(2,2))
+plot(fit3)
+```
+
